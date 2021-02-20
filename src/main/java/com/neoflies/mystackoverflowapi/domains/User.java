@@ -1,5 +1,6 @@
 package com.neoflies.mystackoverflowapi.domains;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.neoflies.mystackoverflowapi.enums.Gender;
 import com.neoflies.mystackoverflowapi.enums.LoginProvider;
 import lombok.Getter;
@@ -27,6 +28,7 @@ public class User {
 
   private String email;
 
+  @JsonIgnore
   private String password;
 
   private String firstName;
@@ -49,9 +51,9 @@ public class User {
 
   private String providerId;
 
-  private Boolean emailConfirmed;
+  private Boolean emailConfirmed = false;
 
-  private Boolean active;
+  private Boolean active = true;
 
   @CreationTimestamp
   private Date createdAt;
