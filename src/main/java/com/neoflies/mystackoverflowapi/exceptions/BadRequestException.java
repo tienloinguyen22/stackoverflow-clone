@@ -1,15 +1,20 @@
 package com.neoflies.mystackoverflowapi.exceptions;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import lombok.Getter;
+import lombok.Setter;
 
-@ResponseStatus(HttpStatus.BAD_REQUEST)
+@Getter
+@Setter
 public class BadRequestException extends RuntimeException {
+  private String error;
+
   public BadRequestException() {
     super("Bad request");
+    this.error = "common/bad-request";
   }
 
-  public BadRequestException(String message) {
+  public BadRequestException(String error, String message) {
     super(message);
+    this.error = error;
   }
 }

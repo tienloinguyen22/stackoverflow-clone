@@ -4,15 +4,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.Date;
+import javax.validation.constraints.NotBlank;
 
 @Getter
 @Setter
 @NoArgsConstructor
-public class AuthResponse {
-  private String accessToken;
-
+public class RefreshTokenPayload {
+  @NotBlank(message = "Refresh Token is required")
   private String refreshToken;
-
-  private Date expiredAt;
 }
