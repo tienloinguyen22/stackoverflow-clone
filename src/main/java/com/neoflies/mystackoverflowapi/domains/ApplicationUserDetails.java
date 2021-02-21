@@ -29,7 +29,7 @@ public class ApplicationUserDetails implements OAuth2User, UserDetails {
 
   public static UserDetails create(User user) {
     List<GrantedAuthority> authorities = new ArrayList<>();
-    authorities.add(new SimpleGrantedAuthority("LOGGED_IN"));
+    user.getAuthorities().forEach((authority) -> authorities.add(new SimpleGrantedAuthority(authority.getAuthority())));
     return new ApplicationUserDetails(user.getId(), user.getEmail(), user.getPassword(), user.getActive(), authorities);
   }
 

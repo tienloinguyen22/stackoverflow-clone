@@ -9,11 +9,10 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -54,6 +53,9 @@ public class User {
   private Boolean emailConfirmed = false;
 
   private Boolean active = true;
+
+  @OneToMany(targetEntity = Authority.class, fetch = FetchType.EAGER)
+  private List<Authority> authorities = new LinkedList<>();
 
   @CreationTimestamp
   private Date createdAt;

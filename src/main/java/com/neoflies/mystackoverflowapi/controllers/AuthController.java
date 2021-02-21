@@ -1,9 +1,6 @@
 package com.neoflies.mystackoverflowapi.controllers;
 
-import com.neoflies.mystackoverflowapi.domains.ApplicationUserDetails;
-import com.neoflies.mystackoverflowapi.domains.JwtToken;
-import com.neoflies.mystackoverflowapi.domains.RefreshToken;
-import com.neoflies.mystackoverflowapi.domains.User;
+import com.neoflies.mystackoverflowapi.domains.*;
 import com.neoflies.mystackoverflowapi.dtos.AuthResponse;
 import com.neoflies.mystackoverflowapi.dtos.LoginPayload;
 import com.neoflies.mystackoverflowapi.dtos.RefreshTokenPayload;
@@ -11,6 +8,7 @@ import com.neoflies.mystackoverflowapi.dtos.SignUpPayload;
 import com.neoflies.mystackoverflowapi.enums.LoginProvider;
 import com.neoflies.mystackoverflowapi.exceptions.BadRequestException;
 import com.neoflies.mystackoverflowapi.exceptions.ResourceNotFoundException;
+import com.neoflies.mystackoverflowapi.repositories.AuthorityRepository;
 import com.neoflies.mystackoverflowapi.repositories.RefreshTokenRepository;
 import com.neoflies.mystackoverflowapi.repositories.UserRepository;
 import com.neoflies.mystackoverflowapi.services.ApplicationUserDetailsService;
@@ -30,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -52,6 +51,9 @@ public class AuthController {
 
   @Autowired
   ApplicationUserDetailsService applicationUserDetailsService;
+
+  @Autowired
+  AuthorityRepository authorityRepository;
 
   @PostMapping("/sign-in")
   public ResponseEntity<AuthResponse> signIn(@Valid @RequestBody LoginPayload body) {
@@ -82,6 +84,8 @@ public class AuthController {
       throw new BadRequestException("sign-up/email-already-in-used", "Email already in use");
     }
 
+    List<Authority> userAuthorities = this.authorityRepository.findAll();
+
     User user = new User();
     user.setId(UUID.randomUUID());
     user.setEmail(body.getEmail());
@@ -89,6 +93,7 @@ public class AuthController {
     user.setFirstName(body.getFirstName());
     user.setLastName(body.getLastName());
     user.setLoginProvider(LoginProvider.EMAIL);
+    user.setAuthorities(userAuthorities);
 
     User result = this.userRepository.save(user);
     return new ResponseEntity<>(result, HttpStatus.OK);

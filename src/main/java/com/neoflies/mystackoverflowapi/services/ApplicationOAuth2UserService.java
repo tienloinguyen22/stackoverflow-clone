@@ -1,11 +1,9 @@
 package com.neoflies.mystackoverflowapi.services;
 
-import com.neoflies.mystackoverflowapi.domains.ApplicationUserDetails;
-import com.neoflies.mystackoverflowapi.domains.OAuth2UserInfo;
-import com.neoflies.mystackoverflowapi.domains.OAuth2UserInfoFactory;
-import com.neoflies.mystackoverflowapi.domains.User;
+import com.neoflies.mystackoverflowapi.domains.*;
 import com.neoflies.mystackoverflowapi.enums.LoginProvider;
 import com.neoflies.mystackoverflowapi.exceptions.OAuth2AuthenticationProcessingException;
+import com.neoflies.mystackoverflowapi.repositories.AuthorityRepository;
 import com.neoflies.mystackoverflowapi.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
@@ -16,6 +14,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,6 +22,9 @@ import java.util.UUID;
 public class ApplicationOAuth2UserService extends DefaultOAuth2UserService {
   @Autowired
   UserRepository userRepository;
+
+  @Autowired
+  AuthorityRepository authorityRepository;
 
   @Override
   public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -53,6 +55,8 @@ public class ApplicationOAuth2UserService extends DefaultOAuth2UserService {
         return ApplicationUserDetails.create(existedUser, oAuth2User.getAttributes());
       }
     } else {
+      List<Authority> userAuthorities = this.authorityRepository.findAll();
+
       User newUser = new User();
       newUser.setId(UUID.randomUUID());
       newUser.setEmail(oAuth2UserInfo.getEmail());
@@ -62,6 +66,7 @@ public class ApplicationOAuth2UserService extends DefaultOAuth2UserService {
       newUser.setAvatarUrl(oAuth2UserInfo.getImageUrl());
       newUser.setLoginProvider(loginType.equals("facebook") ? LoginProvider.FACEBOOK : LoginProvider.GOOGLE);
       newUser.setProviderId(oAuth2UserInfo.getId());
+      newUser.setAuthorities(userAuthorities);
       this.userRepository.save(newUser);
 
       return ApplicationUserDetails.create(newUser, oAuth2User.getAttributes());
