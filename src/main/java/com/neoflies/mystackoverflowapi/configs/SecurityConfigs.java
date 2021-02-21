@@ -1,7 +1,10 @@
 package com.neoflies.mystackoverflowapi.configs;
 
 import com.neoflies.mystackoverflowapi.exceptions.ApiAuthenticationEntryPoint;
+import com.neoflies.mystackoverflowapi.repositories.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.neoflies.mystackoverflowapi.services.ApplicationUserDetailsService;
+import com.neoflies.mystackoverflowapi.utils.OAuth2AuthenticationFailureHandler;
+import com.neoflies.mystackoverflowapi.utils.OAuth2AuthenticationSuccessHandler;
 import com.neoflies.mystackoverflowapi.utils.TokenAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -12,8 +15,10 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @EnableWebSecurity
@@ -21,6 +26,18 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfigs extends WebSecurityConfigurerAdapter {
   @Autowired
   ApplicationUserDetailsService applicationUserDetailsService;
+
+  @Autowired
+  OAuth2UserService oAuth2UserService;
+
+  @Autowired
+  OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+
+  @Autowired
+  OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+
+  @Autowired
+  HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
 
   @Bean
   public PasswordEncoder passwordEncoder() {
@@ -50,6 +67,9 @@ public class SecurityConfigs extends WebSecurityConfigurerAdapter {
     http
       .cors()
       .and()
+      .sessionManagement()
+        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+      .and()
       .csrf()
         .disable()
       .formLogin()
@@ -60,8 +80,16 @@ public class SecurityConfigs extends WebSecurityConfigurerAdapter {
         .authenticationEntryPoint(new ApiAuthenticationEntryPoint())
       .and()
       .authorizeRequests()
-        .antMatchers("/api/auth/**").permitAll()
-        .anyRequest().authenticated();
+        .antMatchers("/auth/**", "/oauth2/**").permitAll()
+        .anyRequest().authenticated()
+      .and()
+      .oauth2Login()
+        .authorizationEndpoint().baseUri("/oauth2/authorize").authorizationRequestRepository(this.httpCookieOAuth2AuthorizationRequestRepository)
+        .and()
+        .userInfoEndpoint().userService(this.oAuth2UserService)
+        .and()
+        .successHandler(this.oAuth2AuthenticationSuccessHandler)
+        .failureHandler(this.oAuth2AuthenticationFailureHandler);
 
     http.addFilterBefore(this.tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
   }
