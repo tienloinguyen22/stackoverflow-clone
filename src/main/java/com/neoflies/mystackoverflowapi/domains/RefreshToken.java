@@ -1,5 +1,6 @@
 package com.neoflies.mystackoverflowapi.domains;
 
+import com.neoflies.mystackoverflowapi.utils.Auditable;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -12,7 +13,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-public class RefreshToken {
+public class RefreshToken extends Auditable<UUID> {
   @Id
   @Column(columnDefinition = "uuid", updatable = false)
   private UUID token;

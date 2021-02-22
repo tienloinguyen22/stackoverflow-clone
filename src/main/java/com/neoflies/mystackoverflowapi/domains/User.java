@@ -3,11 +3,10 @@ package com.neoflies.mystackoverflowapi.domains;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.neoflies.mystackoverflowapi.enums.Gender;
 import com.neoflies.mystackoverflowapi.enums.LoginProvider;
+import com.neoflies.mystackoverflowapi.utils.Auditable;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import javax.persistence.*;
 import java.util.Date;
@@ -20,7 +19,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-public class User {
+public class User extends Auditable<UUID> {
   @Id
   @Column(columnDefinition = "uuid", updatable = false)
   private UUID id;
@@ -56,10 +55,4 @@ public class User {
 
   @OneToMany(targetEntity = Authority.class, fetch = FetchType.EAGER)
   private List<Authority> authorities = new LinkedList<>();
-
-  @CreationTimestamp
-  private Date createdAt;
-
-  @UpdateTimestamp
-  private Date updatedAt;
 }
