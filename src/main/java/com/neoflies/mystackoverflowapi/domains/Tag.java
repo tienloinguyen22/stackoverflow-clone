@@ -23,5 +23,5 @@ public class Tag extends Auditable<UUID> {
 
   private String description;
 
-  private Integer count;
+  private Integer count = 0;
 }
