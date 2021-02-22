@@ -2,6 +2,7 @@ package com.neoflies.mystackoverflowapi.domains;
 
 import com.neoflies.mystackoverflowapi.utils.Auditable;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import javax.persistence.Column;
@@ -14,6 +15,7 @@ import java.util.UUID;
 @Table(name = "tags")
 @Getter
 @Setter
+@NoArgsConstructor
 public class Tag extends Auditable<UUID> {
   @Id
   @Column(columnDefinition = "uuid", updatable = false)
