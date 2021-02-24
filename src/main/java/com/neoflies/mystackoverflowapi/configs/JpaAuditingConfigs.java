@@ -18,10 +18,9 @@ public class JpaAuditingConfigs {
   public AuditorAware<UUID> auditorProvider() {
     return () -> {
       Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-      if (authentication == null) {
+      if (authentication.getPrincipal() == "anonymousUser") {
         return Optional.empty();
       }
-
       ApplicationUserDetails userDetails = (ApplicationUserDetails) authentication.getPrincipal();
       return Optional.ofNullable(userDetails.getId());
     };

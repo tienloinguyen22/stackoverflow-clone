@@ -53,6 +53,6 @@ public class User extends Auditable<UUID> {
 
   private Boolean active = true;
 
-  @OneToMany(targetEntity = Authority.class, fetch = FetchType.EAGER)
+  @ManyToMany(targetEntity = Authority.class, fetch = FetchType.EAGER)
   private List<Authority> authorities = new LinkedList<>();
 }

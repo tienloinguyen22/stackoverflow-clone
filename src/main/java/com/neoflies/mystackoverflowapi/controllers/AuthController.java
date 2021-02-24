@@ -1,17 +1,16 @@
 package com.neoflies.mystackoverflowapi.controllers;
 
 import com.neoflies.mystackoverflowapi.domains.*;
-import com.neoflies.mystackoverflowapi.dtos.AuthResponse;
-import com.neoflies.mystackoverflowapi.dtos.LoginPayload;
-import com.neoflies.mystackoverflowapi.dtos.RefreshTokenPayload;
-import com.neoflies.mystackoverflowapi.dtos.SignUpPayload;
+import com.neoflies.mystackoverflowapi.dtos.*;
 import com.neoflies.mystackoverflowapi.enums.LoginProvider;
 import com.neoflies.mystackoverflowapi.exceptions.BadRequestException;
 import com.neoflies.mystackoverflowapi.exceptions.ResourceNotFoundException;
 import com.neoflies.mystackoverflowapi.repositories.AuthorityRepository;
+import com.neoflies.mystackoverflowapi.repositories.EmailConfirmationCodeRepository;
 import com.neoflies.mystackoverflowapi.repositories.RefreshTokenRepository;
 import com.neoflies.mystackoverflowapi.repositories.UserRepository;
 import com.neoflies.mystackoverflowapi.services.ApplicationUserDetailsService;
+import com.neoflies.mystackoverflowapi.services.EmailService;
 import com.neoflies.mystackoverflowapi.utils.TokenProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -22,14 +21,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.thymeleaf.context.Context;
+import org.thymeleaf.spring5.SpringTemplateEngine;
 
+import javax.mail.MessagingException;
 import javax.validation.Valid;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @RestController
 @RequestMapping("/auth")
@@ -54,6 +52,12 @@ public class AuthController {
 
   @Autowired
   AuthorityRepository authorityRepository;
+
+  @Autowired
+  EmailConfirmationCodeRepository emailConfirmationCodeRepository;
+
+  @Autowired
+  EmailService emailService;
 
   @PostMapping("/sign-in")
   public ResponseEntity<AuthResponse> signIn(@Valid @RequestBody LoginPayload body) {
@@ -85,7 +89,6 @@ public class AuthController {
     }
 
     List<Authority> userAuthorities = this.authorityRepository.findAll();
-
     User user = new User();
     user.setId(UUID.randomUUID());
     user.setEmail(body.getEmail());
@@ -94,8 +97,9 @@ public class AuthController {
     user.setLastName(body.getLastName());
     user.setLoginProvider(LoginProvider.EMAIL);
     user.setAuthorities(userAuthorities);
-
     User result = this.userRepository.save(user);
+
+    this.emailService.sendConfirmationEmail(result);
     return new ResponseEntity<>(result, HttpStatus.OK);
   }
 
@@ -117,5 +121,23 @@ public class AuthController {
     authResponse.setExpiredAt(jwtToken.getExpires());
     authResponse.setRefreshToken(result.getToken().toString());
     return new ResponseEntity<>(authResponse, HttpStatus.OK);
+  }
+
+  @PostMapping("/confirm-email")
+  public ResponseEntity<ConfirmEmailResponse> confirmEmail(@Valid @RequestBody ConfirmEmailPayload body) {
+    EmailConfirmationCode emailConfirmationCode = this.emailConfirmationCodeRepository.findById(UUID.fromString(body.getCode()))
+      .orElseThrow(() -> new BadRequestException("confirm-email/confirm-code-not-found", "Confirm code not found"));
+    Boolean expired = emailConfirmationCode.getExpires().getTime() < new Date().getTime();
+    if (expired) {
+      throw new BadRequestException("confirm-email/confirm-code-expired", "Confirm code expired");
+    }
+
+    User user = emailConfirmationCode.getUser();
+    user.setEmailConfirmed(true);
+    this.userRepository.save(user);
+
+    ConfirmEmailResponse confirmEmailResponse = new ConfirmEmailResponse();
+    confirmEmailResponse.setSuccess(true);
+    return new ResponseEntity<>(confirmEmailResponse, HttpStatus.OK);
   }
 }
