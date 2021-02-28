@@ -22,12 +22,15 @@ public class Question extends Auditable<UUID> {
 
   private String title;
 
+  @Column(columnDefinition = "text")
   private String body;
 
-  @ManyToMany(targetEntity = Tag.class, fetch = FetchType.EAGER)
+  @ManyToMany(targetEntity = Tag.class)
   private List<Tag> tags = new LinkedList<>();
 
   private Integer views = 0;
 
   private Integer votes = 0;
+
+  private String slug;
 }

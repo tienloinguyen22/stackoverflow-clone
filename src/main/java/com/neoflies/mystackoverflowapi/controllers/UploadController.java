@@ -6,10 +6,7 @@ import com.neoflies.mystackoverflowapi.utils.AwsS3Utils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -24,14 +21,14 @@ public class UploadController {
   @Autowired
   AwsS3Utils awsS3Utils;
 
-  @PostMapping("/images/questions")
-  public ResponseEntity<File> uploadImage(@RequestParam("file") MultipartFile file) {
+  @PostMapping("/images/{entity}")
+  public ResponseEntity<File> uploadImage(@RequestParam("file") MultipartFile file, @PathVariable("entity") String entity) {
     this.validateImageFile(file);
 
     String filename = UUID.randomUUID().toString() + this.getFileExt(file.getOriginalFilename());
     String url = "";
     try {
-      url = this.awsS3Utils.uploadFile(file, "images/questions/" + filename);
+      url = this.awsS3Utils.uploadFile(file, "images/" + entity + "/" + filename);
     } catch (IOException ex) {
       throw new BadRequestException("uploads-image/file-error", "File error");
     }

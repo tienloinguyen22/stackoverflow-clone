@@ -1,5 +1,6 @@
 package com.neoflies.mystackoverflowapi.exceptions;
 
+import com.neoflies.mystackoverflowapi.utils.SlugUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
@@ -23,19 +24,6 @@ import java.util.stream.Collectors;
 @ControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
   private static final Logger logger = LoggerFactory.getLogger(ApiExceptionHandler.class);
-  private static final Pattern NON_LATIN = Pattern.compile("[^\\w-]");
-  private static final Pattern WHITESPACE = Pattern.compile("[\\s]");
-
-  private String makeSlug(String message) {
-    if (message == null) {
-      return "";
-    }
-
-    String noWhiteSpace = WHITESPACE.matcher(message).replaceAll("-");
-    String normalized = Normalizer.normalize(noWhiteSpace, Normalizer.Form.NFD);
-    String slug = NON_LATIN.matcher(normalized).replaceAll("");
-    return slug.toLowerCase(Locale.ENGLISH);
-  }
 
   @ExceptionHandler(BadRequestException.class)
   protected ResponseEntity<ApiException> handleBadRequestException(BadRequestException ex) {
@@ -56,7 +44,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     String uri = description.split(";")[0];
     String[] paths = uri.split("/");
     String message = errors.get(0);
-    String error = paths[paths.length - 1] + "/" + this.makeSlug(message);
+    String error = paths[paths.length - 1] + "/" + SlugUtils.slugify(message);
 
     ApiException apiException = new ApiException(error, message, HttpStatus.BAD_REQUEST);
     return new ResponseEntity<>(apiException, HttpStatus.BAD_REQUEST);

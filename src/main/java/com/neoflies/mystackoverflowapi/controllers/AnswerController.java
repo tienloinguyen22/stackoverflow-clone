@@ -1,31 +1,68 @@
 package com.neoflies.mystackoverflowapi.controllers;
 
-import com.neoflies.mystackoverflowapi.domains.Answer;
-import com.neoflies.mystackoverflowapi.domains.Question;
+import com.neoflies.mystackoverflowapi.domains.*;
 import com.neoflies.mystackoverflowapi.dtos.CreateAnswerPayload;
+import com.neoflies.mystackoverflowapi.dtos.FindResult;
+import com.neoflies.mystackoverflowapi.exceptions.BadRequestException;
 import com.neoflies.mystackoverflowapi.exceptions.ResourceNotFoundException;
 import com.neoflies.mystackoverflowapi.repositories.AnswerRepository;
+import com.neoflies.mystackoverflowapi.repositories.AnswerVoteRepository;
 import com.neoflies.mystackoverflowapi.repositories.QuestionRepository;
+import com.neoflies.mystackoverflowapi.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import javax.validation.Valid;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+
+import static com.neoflies.mystackoverflowapi.controllers.QuestionController.DOWN_VOTE;
+import static com.neoflies.mystackoverflowapi.controllers.QuestionController.UP_VOTE;
 
 @RestController
 @RequestMapping("/api/answers")
 public class AnswerController {
+  @PersistenceContext
+  EntityManager entityManager;
+
   @Autowired
   AnswerRepository answerRepository;
 
   @Autowired
   QuestionRepository questionRepository;
+
+  @Autowired
+  UserRepository userRepository;
+
+  @Autowired
+  AnswerVoteRepository answerVoteRepository;
+
+  @GetMapping
+  @PreAuthorize("hasAuthority('VIEW_ANSWER')")
+  public ResponseEntity<FindResult<Answer>> findAnswers(
+    @RequestParam(name = "question", required = true) String question,
+    @RequestParam(name = "page", defaultValue = "1") Integer page,
+    @RequestParam(name = "limit", defaultValue = "6") Integer limit,
+    @RequestParam(name = "sortBy", defaultValue = "count") String sortBy,
+    @RequestParam(name = "order", defaultValue = "desc") String order
+  ) {
+    String dataQuery = String.format("SELECT * FROM answers WHERE question_id = '%s' ORDER BY %s %s OFFSET %d LIMIT %d;", question, sortBy, order, (page - 1) * limit, limit);
+    String countQuery = String.format("SELECT count(*) FROM answers WHERE question_id = '%s';", question);
+
+    List<Answer> answers = this.entityManager.createNativeQuery(dataQuery, Answer.class).getResultList();
+    int total = ((Number) this.entityManager.createNativeQuery(countQuery).getSingleResult()).intValue();
+    FindResult<Answer> findResult = new FindResult<>(answers, total);
+    return new ResponseEntity<>(findResult, HttpStatus.OK);
+  }
 
   @PostMapping
   @PreAuthorize("hasAuthority('CREATE_ANSWER')")
@@ -37,5 +74,83 @@ public class AnswerController {
     answer.setQuestion(question);
     Answer result = this.answerRepository.save(answer);
     return new ResponseEntity<>(result, HttpStatus.OK);
+  }
+
+  @PatchMapping("/{id}/up-vote")
+  @PreAuthorize("hasAuthority('VOTE_ANSWER')")
+  @Transactional
+  public ResponseEntity<Answer> upVoteAnswer(@PathVariable String id) {
+    Answer existedAnswer = this.answerRepository.findById(UUID.fromString(id))
+      .orElseThrow(() -> new ResourceNotFoundException("up-vote-answer/answer-not-found", "Answer not found"));
+
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    ApplicationUserDetails userDetails = (ApplicationUserDetails) authentication.getPrincipal();
+    UUID currentUserId = userDetails.getId();
+    User currentUser = this.userRepository.findById(currentUserId)
+      .orElseThrow(() -> new ResourceNotFoundException("up-vote-answer/user-not-found", "User not found"));
+
+    Optional<AnswerVote> optionalAnswerVote = this.answerVoteRepository.findByUserAndAnswer(currentUser, existedAnswer);
+    Integer vote = UP_VOTE;
+    if (optionalAnswerVote.isPresent()) {
+      AnswerVote existedAnswerVote = optionalAnswerVote.get();
+      if (existedAnswerVote.getVote() == UP_VOTE) {
+        throw new BadRequestException("up-vote-answer/already-up-vote-answer", "You already up vote this answer");
+      } else {
+        vote = 2;
+        existedAnswerVote.setVote(UP_VOTE);
+        this.answerVoteRepository.save(existedAnswerVote);
+      }
+    } else {
+      vote = 1;
+      AnswerVote answerVote = new AnswerVote();
+      answerVote.setId(UUID.randomUUID());
+      answerVote.setAnswer(existedAnswer);
+      answerVote.setUser(currentUser);
+      answerVote.setVote(1);
+      this.answerVoteRepository.save(answerVote);
+    }
+
+    existedAnswer.setVotes(existedAnswer.getVotes() + vote);
+    Answer newAnswerInfo = this.answerRepository.save(existedAnswer);
+    return new ResponseEntity<>(newAnswerInfo, HttpStatus.OK);
+  }
+
+  @PatchMapping("/{id}/down-vote")
+  @PreAuthorize("hasAuthority('VOTE_ANSWER')")
+  @Transactional
+  public ResponseEntity<Answer> downVoteAnswer(@PathVariable String id) {
+    Answer existedAnswer = this.answerRepository.findById(UUID.fromString(id))
+      .orElseThrow(() -> new ResourceNotFoundException("down-vote-answer/answer-not-found", "Answer not found"));
+
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    ApplicationUserDetails userDetails = (ApplicationUserDetails) authentication.getPrincipal();
+    UUID currentUserId = userDetails.getId();
+    User currentUser = this.userRepository.findById(currentUserId)
+      .orElseThrow(() -> new ResourceNotFoundException("down-vote-answer/user-not-found", "User not found"));
+
+    Optional<AnswerVote> optionalAnswerVote = this.answerVoteRepository.findByUserAndAnswer(currentUser, existedAnswer);
+    Integer vote = DOWN_VOTE;
+    if (optionalAnswerVote.isPresent()) {
+      AnswerVote existedAnswerVote = optionalAnswerVote.get();
+      if (existedAnswerVote.getVote() == DOWN_VOTE) {
+        throw new BadRequestException("down-vote-answer/already-down-vote-answer", "You already down vote this answer");
+      } else {
+        vote = -2;
+        existedAnswerVote.setVote(DOWN_VOTE);
+        this.answerVoteRepository.save(existedAnswerVote);
+      }
+    } else {
+      vote = -1;
+      AnswerVote answerVote = new AnswerVote();
+      answerVote.setId(UUID.randomUUID());
+      answerVote.setAnswer(existedAnswer);
+      answerVote.setUser(currentUser);
+      answerVote.setVote(-1);
+      this.answerVoteRepository.save(answerVote);
+    }
+
+    existedAnswer.setVotes(existedAnswer.getVotes() + vote);
+    Answer newAnswerInfo = this.answerRepository.save(existedAnswer);
+    return new ResponseEntity<>(newAnswerInfo, HttpStatus.OK);
   }
 }
