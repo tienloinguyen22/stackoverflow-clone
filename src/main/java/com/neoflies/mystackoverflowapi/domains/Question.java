@@ -1,5 +1,6 @@
 package com.neoflies.mystackoverflowapi.domains;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.neoflies.mystackoverflowapi.utils.Auditable;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -33,4 +34,8 @@ public class Question extends Auditable<UUID> {
   private Integer votes = 0;
 
   private String slug;
+
+  @JsonInclude()
+  @Transient
+  private Integer vote;
 }

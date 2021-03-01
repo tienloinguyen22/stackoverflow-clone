@@ -27,7 +27,6 @@ public class TagController {
   TagRepository tagRepository;
 
   @GetMapping
-  @PreAuthorize("hasAuthority('VIEW_TAG')")
   public ResponseEntity<FindResult<Tag>> findTags(
     @RequestParam(name = "search", required = false) String search,
     @RequestParam(name = "page", defaultValue = "1") Integer page,

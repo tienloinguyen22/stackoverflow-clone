@@ -27,7 +27,6 @@ public class UserController {
   UserRepository userRepository;
 
   @GetMapping
-  @PreAuthorize("hasAuthority('VIEW_USER')")
   public ResponseEntity<FindResult<User>> findUsers(
     @RequestParam(name = "search", required = false) String search,
     @RequestParam(name = "page", defaultValue = "1") Integer page,

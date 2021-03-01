@@ -9,6 +9,7 @@ import com.neoflies.mystackoverflowapi.utils.TokenAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.BeanIds;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -102,7 +103,11 @@ public class SecurityConfigs extends WebSecurityConfigurerAdapter {
       .authorizeRequests()
         .antMatchers("/auth/**", "/oauth2/**").permitAll()
         .antMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-      .anyRequest().authenticated()
+        .antMatchers(HttpMethod.GET, "/api/questions/**").permitAll()
+        .antMatchers(HttpMethod.GET, "/api/answers/**").permitAll()
+        .antMatchers(HttpMethod.GET, "/api/tags/**").permitAll()
+        .antMatchers(HttpMethod.GET, "/api/users/**").permitAll()
+        .anyRequest().authenticated()
       .and()
       .oauth2Login()
         .authorizationEndpoint().baseUri("/oauth2/authorize").authorizationRequestRepository(this.httpCookieOAuth2AuthorizationRequestRepository)

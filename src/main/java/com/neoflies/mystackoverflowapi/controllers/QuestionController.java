@@ -8,15 +8,12 @@ import com.neoflies.mystackoverflowapi.exceptions.ResourceNotFoundException;
 import com.neoflies.mystackoverflowapi.repositories.QuestionRepository;
 import com.neoflies.mystackoverflowapi.repositories.QuestionVoteRepository;
 import com.neoflies.mystackoverflowapi.repositories.TagRepository;
-import com.neoflies.mystackoverflowapi.repositories.UserRepository;
+import com.neoflies.mystackoverflowapi.utils.AuthorizationUtils;
 import com.neoflies.mystackoverflowapi.utils.SlugUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,13 +40,12 @@ public class QuestionController {
   TagRepository tagRepository;
 
   @Autowired
-  UserRepository userRepository;
-
-  @Autowired
   QuestionVoteRepository questionVoteRepository;
 
+  @Autowired
+  AuthorizationUtils authorizationUtils;
+
   @GetMapping
-  @PreAuthorize("hasAuthority('VIEW_QUESTION')")
   public ResponseEntity<FindResult<Question>> findQuestions(
     @RequestParam(name = "search", required = false) String search,
     @RequestParam(name = "page", defaultValue = "1") Integer page,
@@ -75,10 +71,19 @@ public class QuestionController {
   }
 
   @GetMapping("/{id}")
-  @PreAuthorize("hasAuthority('VIEW_QUESTION')")
   public ResponseEntity<Question> findQuestionById(@PathVariable String id) {
     Question question = this.questionRepository.findById(UUID.fromString(id))
       .orElseThrow(() -> new ResourceNotFoundException("questions/question-not-found", "Question not found"));
+
+    Optional<User> currentUser = this.authorizationUtils.getCurrentUser();
+    if (currentUser.isPresent()) {
+      Optional<QuestionVote> optionalQuestionVote = this.questionVoteRepository.findByUserAndQuestion(currentUser.get(), question);
+      if (optionalQuestionVote.isPresent()) {
+        QuestionVote questionVote = optionalQuestionVote.get();
+        question.setVote(questionVote.getVote());
+      }
+    }
+
     return new ResponseEntity<>(question, HttpStatus.OK);
   }
 
@@ -109,16 +114,14 @@ public class QuestionController {
     Question existedQuestion = this.questionRepository.findById(UUID.fromString(id))
       .orElseThrow(() -> new ResourceNotFoundException("up-vote-question/question-not-found", "Question not found"));
 
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    ApplicationUserDetails userDetails = (ApplicationUserDetails) authentication.getPrincipal();
-    UUID currentUserId = userDetails.getId();
-    User currentUser = this.userRepository.findById(currentUserId)
-      .orElseThrow(() -> new ResourceNotFoundException("up-vote-question/user-not-found", "User not found"));
+    User currentUser = this.authorizationUtils.getCurrentUser().get();
 
     Optional<QuestionVote> optionalQuestionVote = this.questionVoteRepository.findByUserAndQuestion(currentUser, existedQuestion);
+    QuestionVote questionVoteInfo;
     Integer vote = UP_VOTE;
     if (optionalQuestionVote.isPresent()) {
       QuestionVote existedQuestionVote = optionalQuestionVote.get();
+      questionVoteInfo = existedQuestionVote;
       if (existedQuestionVote.getVote() == UP_VOTE) {
         throw new BadRequestException("up-vote-question/already-up-vote-question", "You already up vote this question");
       } else {
@@ -133,11 +136,12 @@ public class QuestionController {
       questionVote.setQuestion(existedQuestion);
       questionVote.setUser(currentUser);
       questionVote.setVote(1);
-      this.questionVoteRepository.save(questionVote);
+      questionVoteInfo = this.questionVoteRepository.save(questionVote);
     }
 
     existedQuestion.setVotes(existedQuestion.getVotes() + vote);
     Question newQuestionInfo = this.questionRepository.save(existedQuestion);
+    newQuestionInfo.setVote(questionVoteInfo.getVote());
     return new ResponseEntity<>(newQuestionInfo, HttpStatus.OK);
   }
 
@@ -148,16 +152,14 @@ public class QuestionController {
     Question existedQuestion = this.questionRepository.findById(UUID.fromString(id))
       .orElseThrow(() -> new ResourceNotFoundException("up-vote/question-not-found", "Question not found"));
 
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    ApplicationUserDetails userDetails = (ApplicationUserDetails) authentication.getPrincipal();
-    UUID currentUserId = userDetails.getId();
-    User currentUser = this.userRepository.findById(currentUserId)
-      .orElseThrow(() -> new ResourceNotFoundException("up-vote/user-not-found", "User not found"));
+    User currentUser = this.authorizationUtils.getCurrentUser().get();
 
     Optional<QuestionVote> optionalQuestionVote = this.questionVoteRepository.findByUserAndQuestion(currentUser, existedQuestion);
     Integer vote = DOWN_VOTE;
+    QuestionVote questionVoteInfo;
     if (optionalQuestionVote.isPresent()) {
       QuestionVote existedQuestionVote = optionalQuestionVote.get();
+      questionVoteInfo = existedQuestionVote;
       if (existedQuestionVote.getVote() == DOWN_VOTE) {
         throw new BadRequestException("up-vote/already-down-vote-question", "You already down vote this question");
       } else {
@@ -172,11 +174,12 @@ public class QuestionController {
       questionVote.setQuestion(existedQuestion);
       questionVote.setUser(currentUser);
       questionVote.setVote(-1);
-      this.questionVoteRepository.save(questionVote);
+      questionVoteInfo = this.questionVoteRepository.save(questionVote);
     }
 
     existedQuestion.setVotes(existedQuestion.getVotes() + vote);
     Question newQuestionInfo = this.questionRepository.save(existedQuestion);
+    newQuestionInfo.setVote(questionVoteInfo.getVote());
     return new ResponseEntity<>(newQuestionInfo, HttpStatus.OK);
   }
 }
