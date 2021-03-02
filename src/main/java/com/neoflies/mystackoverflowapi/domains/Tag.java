@@ -1,14 +1,12 @@
 package com.neoflies.mystackoverflowapi.domains;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.neoflies.mystackoverflowapi.utils.Auditable;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.util.UUID;
 
 @Entity
@@ -26,4 +24,12 @@ public class Tag extends Auditable<UUID> {
   private String description;
 
   private Integer count = 0;
+
+  @JsonInclude()
+  @Transient
+  private Integer day;
+
+  @JsonInclude()
+  @Transient
+  private Integer week;
 }

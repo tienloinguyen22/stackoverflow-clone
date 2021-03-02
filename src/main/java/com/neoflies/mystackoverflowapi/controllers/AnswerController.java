@@ -74,8 +74,13 @@ public class AnswerController {
 
   @PostMapping
   @PreAuthorize("hasAuthority('CREATE_ANSWER')")
+  @Transactional
   public ResponseEntity<Answer> createAnswer(@Valid @RequestBody CreateAnswerPayload body) {
-    Question question = this.questionRepository.findById(UUID.fromString(body.getQuestion())).orElseThrow(() -> new ResourceNotFoundException("answers/question-not-found", "Question not found"));
+    Question question = this.questionRepository.findById(UUID.fromString(body.getQuestion()))
+      .orElseThrow(() -> new ResourceNotFoundException("answers/question-not-found", "Question not found"));
+    question.setAnswers(question.getAnswers() + 1);
+    this.questionRepository.save(question);
+
     Answer answer = new Answer();
     answer.setId(UUID.randomUUID());
     answer.setBody(body.getBody());

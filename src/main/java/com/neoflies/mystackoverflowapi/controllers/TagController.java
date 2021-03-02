@@ -5,6 +5,7 @@ import com.neoflies.mystackoverflowapi.dtos.CreateTagPayload;
 import com.neoflies.mystackoverflowapi.dtos.FindResult;
 import com.neoflies.mystackoverflowapi.exceptions.BadRequestException;
 import com.neoflies.mystackoverflowapi.repositories.TagRepository;
+import com.neoflies.mystackoverflowapi.utils.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +14,10 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
 import javax.validation.Valid;
+import java.math.BigInteger;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +29,9 @@ public class TagController {
 
   @Autowired
   TagRepository tagRepository;
+
+  @Autowired
+  DateUtils dateUtils;
 
   @GetMapping
   public ResponseEntity<FindResult<Tag>> findTags(
@@ -40,13 +47,44 @@ public class TagController {
       String condition = String.format(" WHERE to_tsvector(name) @@ to_tsquery('%s')", search);
       dataQuery += condition;
       countQuery += condition;
-
     }
     dataQuery += String.format(" ORDER BY %s %s OFFSET %d LIMIT %d;", sortBy, order, (page - 1) * limit, limit);
     countQuery += ";";
 
-    List<Tag> tags = this.entityManager.createNativeQuery(dataQuery, Tag.class).getResultList();
     int total = ((Number) this.entityManager.createNativeQuery(countQuery).getSingleResult()).intValue();
+    List<Tag> tags = this.entityManager.createNativeQuery(dataQuery, Tag.class).getResultList();
+    Date startOfDay = this.dateUtils.getStartOfDay();
+    Date endOfDay = this.dateUtils.getEndOfDay();
+    Date startOfWeek = this.dateUtils.getStartOfWeek();
+    Date endOfWeek = this.dateUtils.getEndOfWeek();
+    String countByTimeQuery = "SELECT\n" +
+      "\tcount(questions_tags.tags_id) AS count\n" +
+      "FROM\n" +
+      "\tquestions_tags\n" +
+      "\tLEFT JOIN questions ON questions_tags.question_id = questions.id\n" +
+      "WHERE\n" +
+      "\tquestions_tags.tags_id = :tagId\n" +
+      "\tAND questions.created_date >= :startDate\n" +
+      "\tAND questions.created_date <= :endDate\n" +
+      "GROUP BY\n" +
+      "\tquestions_tags.tags_id;";
+    for (Tag tag : tags) {
+      Query dayQuery = this.entityManager.createNativeQuery(countByTimeQuery);
+      dayQuery.setParameter("tagId", tag.getId());
+      dayQuery.setParameter("startDate", startOfDay);
+      dayQuery.setParameter("endDate", endOfDay);
+      Integer day = ((Number) dayQuery.getResultList().stream().findFirst().orElse(0)).intValue();
+
+      Query weekQuery = this.entityManager.createNativeQuery(countByTimeQuery);
+      weekQuery.setParameter("tagId", tag.getId());
+      weekQuery.setParameter("startDate", startOfWeek);
+      weekQuery.setParameter("endDate", endOfWeek);
+      Integer week = ((Number) weekQuery.getResultList().stream().findFirst().orElse(0)).intValue();
+
+      tag.setDay(day);
+      tag.setWeek(week);
+    }
+
     FindResult<Tag> findResult = new FindResult<>(tags, total);
     return new ResponseEntity<>(findResult, HttpStatus.OK);
   }

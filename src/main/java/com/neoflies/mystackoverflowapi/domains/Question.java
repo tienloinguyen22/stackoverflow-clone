@@ -33,6 +33,8 @@ public class Question extends Auditable<UUID> {
 
   private Integer votes = 0;
 
+  private Integer answers = 0;
+
   private String slug;
 
   @JsonInclude()
