@@ -55,4 +55,10 @@ public class User extends Auditable<UUID> {
 
   @ManyToMany(targetEntity = Authority.class, fetch = FetchType.EAGER)
   private List<Authority> authorities = new LinkedList<>();
+  
+  @ManyToMany(targetEntity = Tag.class)
+  private List<Tag> watchTags = new LinkedList<>();
+  
+  @ManyToMany(targetEntity = Tag.class)
+  private List<Tag> ignoreTags = new LinkedList<>();
 }

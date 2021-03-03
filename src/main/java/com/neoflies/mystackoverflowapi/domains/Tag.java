@@ -32,4 +32,8 @@ public class Tag extends Auditable<UUID> {
   @JsonInclude()
   @Transient
   private Integer week;
+  
+  @JsonInclude()
+  @Transient
+  private boolean watched = false;
 }

@@ -1,10 +1,14 @@
 package com.neoflies.mystackoverflowapi.controllers;
 
 import com.neoflies.mystackoverflowapi.domains.Tag;
+import com.neoflies.mystackoverflowapi.domains.User;
 import com.neoflies.mystackoverflowapi.dtos.CreateTagPayload;
 import com.neoflies.mystackoverflowapi.dtos.FindResult;
 import com.neoflies.mystackoverflowapi.exceptions.BadRequestException;
+import com.neoflies.mystackoverflowapi.exceptions.ResourceNotFoundException;
 import com.neoflies.mystackoverflowapi.repositories.TagRepository;
+import com.neoflies.mystackoverflowapi.repositories.UserRepository;
+import com.neoflies.mystackoverflowapi.utils.AuthorizationUtils;
 import com.neoflies.mystackoverflowapi.utils.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -16,9 +20,9 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.validation.Valid;
-import java.math.BigInteger;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -32,6 +36,12 @@ public class TagController {
 
   @Autowired
   DateUtils dateUtils;
+  
+  @Autowired
+  AuthorizationUtils authorizationUtils;
+  
+  @Autowired
+  UserRepository userRepository;
 
   @GetMapping
   public ResponseEntity<FindResult<Tag>> findTags(
@@ -89,6 +99,27 @@ public class TagController {
     return new ResponseEntity<>(findResult, HttpStatus.OK);
   }
 
+  @GetMapping("/{name}")
+  public ResponseEntity<Tag> findTagByName(@PathVariable String name) {
+    Tag existedTag = this.tagRepository.findByName(name)
+      .orElseThrow(() -> new ResourceNotFoundException("tags/tag-not-found", "Tag not found"));
+    
+    Optional<User> optionalUser = this.authorizationUtils.getCurrentUser();
+    if (optionalUser.isPresent()) {
+      User currentUser = optionalUser.get();
+      Boolean watched = false;
+      for (Tag tag : currentUser.getWatchTags()) {
+        if (tag.getId().equals(existedTag.getId())) {
+          watched = true;
+          break;
+        }
+      }
+      existedTag.setWatched(watched);
+    }
+    
+    return new ResponseEntity<>(existedTag, HttpStatus.OK);
+  }
+
 
   @PostMapping
   @PreAuthorize("hasAuthority('CREATE_TAG')")
@@ -105,5 +136,37 @@ public class TagController {
 
     Tag result = this.tagRepository.save(tag);
     return new ResponseEntity<>(result, HttpStatus.OK);
+  }
+  
+  @PatchMapping("/{id}/watch")
+  @PreAuthorize("hasAuthority('WATCH_TAG')")
+  public ResponseEntity<Tag> watchTag(@PathVariable String id) {
+    Tag existedTag = this.tagRepository.findById(UUID.fromString(id))
+      .orElseThrow(() -> new ResourceNotFoundException("watch-tag/tag-not-found", "Tag not found"));
+    User currentUser = this.authorizationUtils.getCurrentUser().get();
+    List<Tag> currentWatchedTags = currentUser.getWatchTags();
+    for (Tag tag : currentWatchedTags) {
+      if (tag.getId().toString() == id) {
+        throw new BadRequestException("watch-tag/already-watch-this-tag", "You already watch this tag");
+      }
+    }
+    
+    currentWatchedTags.add(existedTag);
+    currentUser.setWatchTags(currentWatchedTags);
+    this.userRepository.save(currentUser);
+    return new ResponseEntity<>(existedTag, HttpStatus.OK);
+  }
+  
+  @PatchMapping("/{id}/unwatch")
+  @PreAuthorize("hasAuthority('WATCH_TAG')")
+  public ResponseEntity<Tag> unwatchTag(@PathVariable String id) {
+    Tag existedTag = this.tagRepository.findById(UUID.fromString(id))
+      .orElseThrow(() -> new ResourceNotFoundException("watch-tag/tag-not-found", "Tag not found"));
+    User currentUser = this.authorizationUtils.getCurrentUser().get();
+    List<Tag> currentWatchedTags = currentUser.getWatchTags();
+    currentWatchedTags.remove(existedTag);
+    currentUser.setWatchTags(currentWatchedTags);
+    this.userRepository.save(currentUser);
+    return new ResponseEntity<>(existedTag, HttpStatus.OK);
   }
 }
